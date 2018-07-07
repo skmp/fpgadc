@@ -77,11 +77,7 @@ struct dreamcast_t {
 
 template<typename T>
 bool readMem(dreamcast_t *dc, uint32_t addy, T& data) {
-    if (addy >= 0x00000000 && addy < 0x000F0000) {
-        data = 0;
-        return true;
-    }
-    if (addy >= 0x8C000000 && addy < 0x8D000000) {
+    if ((addy >= 0x8C000000 && addy < 0x8D000000) || addy >= 0x0C000000 && addy < 0x0D000000) {
         data = *reinterpret_cast<T*>(&dc->sys_ram[addy & SYSRAM_MASK]);
         return true;
     } else {
@@ -523,8 +519,8 @@ sh4impl(i0110_nnnn_mmmm_0000)
     u32 m = GetM(instr);
 
     s8 data;
-    readMem<s8>(dc, dc->ctx.r[n], data);
-    dc->ctx.r[m] = (s32)data;
+    readMem<s8>(dc, dc->ctx.r[m], data);
+    dc->ctx.r[n] = (s32)data;
 }
 //mov.w @<REG_M>,<REG_N>
 sh4op(i0110_nnnn_mmmm_0001);
@@ -852,7 +848,7 @@ sh4impl(i1111_nnnn_0010_1101)
     if (dc->ctx.fpscr_PR == 0)
     {
         u32 n = GetN(instr);
-        dc->ctx.fr[n] = (float)(int)dc->ctx.fpul;
+        dc->ctx.fr[n] = (f32)(s32)dc->ctx.fpul;
     }
     else
     {
@@ -1259,7 +1255,7 @@ int main(int argc, char ** argv)
 
     SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, 0);
     SDL_Texture * texture = SDL_CreateTexture(renderer,
-        SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, 640, 480);
+        SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STATIC, 640, 480);
     
 
     dreamcast_t* dc = new dreamcast_t();
@@ -1272,11 +1268,11 @@ int main(int argc, char ** argv)
             runDreamcast(dc);
         }
 
-        memcpy(dc->pixels, dc->video_ram, 640 * 480 * 4);
+        memcpy(dc->pixels, dc->video_ram, 640 * 480 * 2);
 
         SDL_Delay(1);
 
-        SDL_UpdateTexture(texture, NULL, dc->pixels, 640 * sizeof(Uint32));
+        SDL_UpdateTexture(texture, NULL, dc->pixels, 640 * sizeof(u16));
 
         while(SDL_PollEvent(&event)) {
             switch (event.type)
