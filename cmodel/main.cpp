@@ -1211,7 +1211,9 @@ void initDreamcast(dreamcast_t *dc) {
 
     assert(f != NULL && "Failed to load roto.bin");
 
-    fread(&dc->sys_ram[0x10000], 256, 1, f);
+    auto read = fread(&dc->sys_ram[0x10000], 256, 1, f);
+
+    assert(read == 1);
 
     fclose(f);
 
