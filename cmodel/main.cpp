@@ -77,6 +77,10 @@ struct dreamcast_t {
 
 template<typename T>
 bool readMem(dreamcast_t *dc, uint32_t addy, T& data) {
+    if (addy >= 0x00000000 && addy < 0x000F0000) {
+        data = 0;
+        return true;
+    }
     if (addy >= 0x8C000000 && addy < 0x8D000000) {
         data = *reinterpret_cast<T*>(&dc->sys_ram[addy & SYSRAM_MASK]);
         return true;
@@ -1264,13 +1268,13 @@ int main(int argc, char ** argv)
 
     while (!quit)
     {
-        for (int i = 0; i <100000; i++) {
+        for (int i = 0; i <1000000; i++) {
             runDreamcast(dc);
         }
 
         memcpy(dc->pixels, dc->video_ram, 640 * 480 * 4);
 
-        SDL_Delay(10);
+        SDL_Delay(1);
 
         SDL_UpdateTexture(texture, NULL, dc->pixels, 640 * sizeof(Uint32));
 
