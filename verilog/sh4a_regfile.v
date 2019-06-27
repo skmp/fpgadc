@@ -4,9 +4,9 @@ module sh4a_regfile(
    
     output [31:0] program_counter,
 
-    input [4:0] idx_read0,
-    input [4:0] idx_read1,
-    input [4:0] idx_write,
+    input [5:0] idx_read0,
+    input [5:0] idx_read1,
+    input [5:0] idx_write,
     input [31:0] reg_write,
     input reg_write_enable,
     output reg [31:0] reg_read0,
@@ -32,27 +32,24 @@ always @(posedge clk) begin
 `ifdef FORMAL
     // The clock always ticks.
     assume(clk == !$past(clk));
-
-    // We must never access an invalid register.
-    assume(idx_read0 >= 0 && idx_read0 <= 23);
-    assume(idx_read1 >= 0 && idx_read1 <= 23);
-    assume(!reg_write_enable || (idx_write >= 0 && idx_write <= 23));
 `endif
 
     if (reset) begin
         program_counter_register <= RESET_PC;
     end else begin
-        if (reg_write_enable && idx_write != REG_ZERO) begin
+        if (reg_write_enable && idx_write != REG_CONST_0 && idx_write != REG_CONST_1) begin
             registers[idx_write] <= reg_write;
         end
 
-        casez (idx_read0)
-            REG_ZERO: reg_read0 <= 32'b0;
+        case (idx_read0)
+            REG_CONST_0: reg_read0 <= 32'd0;
+            REG_CONST_1: reg_read1 <= 32'd1;
             default: reg_read0 <= registers[idx_read0];
         endcase
 
-        casez (idx_read1)
-            REG_ZERO: reg_read1 <= 32'b0;
+        case (idx_read1)
+            REG_CONST_0: reg_read1 <= 32'd0;
+            REG_CONST_1: reg_read1 <= 32'd1;
             default: reg_read1 <= registers[idx_read1];
         endcase
     end

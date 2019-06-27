@@ -29,7 +29,8 @@ localparam REG_MACH     = 6'd25;
 
 localparam REG_FPUL     = 6'd26;
 
-localparam REG_ZERO     = 6'd31;
+localparam REG_CONST_0  = 6'd31;
+localparam REG_CONST_1  = 6'd32;
 
 localparam REG_FR0      = 6'd32;
 localparam REG_FR1      = 6'd33;
@@ -47,3 +48,20 @@ localparam REG_FR12     = 6'd44;
 localparam REG_FR13     = 6'd45;
 localparam REG_FR14     = 6'd46;
 localparam REG_FR15     = 6'd47;
+
+localparam REG_XFR0     = 6'd48;
+localparam REG_XFR1     = 6'd49;
+localparam REG_XFR2     = 6'd50;
+localparam REG_XFR3     = 6'd51;
+localparam REG_XFR4     = 6'd52;
+localparam REG_XFR5     = 6'd53;
+localparam REG_XFR6     = 6'd54;
+localparam REG_XFR7     = 6'd55;
+localparam REG_XFR8     = 6'd56;
+localparam REG_XFR9     = 6'd57;
+localparam REG_XFR10    = 6'd58;
+localparam REG_XFR11    = 6'd59;
+localparam REG_XFR12    = 6'd60;
+localparam REG_XFR13    = 6'd61;
+localparam REG_XFR14    = 6'd62;
+localparam REG_XFR15    = 6'd63;
