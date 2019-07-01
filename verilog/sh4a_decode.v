@@ -21,7 +21,8 @@ module sh4a_decode(
 wire [5:0] RM = {2'b0, insn[7:4]};
 wire [5:0] RN = {2'b0, insn[11:8]};
 
-localparam STATE_DECODE = 2'd0;
+localparam STATE_DECODE = 2'b01;
+localparam STATE_DECTEST = 2'b10;
 
 reg [1:0] state;
 
@@ -31,7 +32,9 @@ always @(posedge clk) begin
     
     if (reset) begin
         state <= STATE_DECODE;
-    end else begin
+    end 
+    
+    else if (state == STATE_DECODE) begin
         casez (insn)
             16'h0??7: begin // mul.l Rm, Rn
                 {insn_valid, src1_valid, src2_valid} <= 3'b111;
@@ -41,22 +44,22 @@ always @(posedge clk) begin
             end
             16'h0009: begin // nop - implemented as add zero, zero -> zero
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
-                src1_reg <= REG_ZERO;
-                src2_reg <= REG_ZERO;
-                dest_reg <= REG_ZERO;
+                src1_reg <= REG_CONST_0;
+                src2_reg <= REG_CONST_0;
+                dest_reg <= REG_CONST_0;
                 op <= ADD;
             end
             16'h0?1A: begin // sts MACL, Rn - implemented as add MACL, zero -> Rn
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
                 src1_reg <= REG_MACL;
-                src2_reg <= REG_ZERO;
+                src2_reg <= REG_CONST_0;
                 dest_reg <= RN;
                 op <= ADD;
             end
             16'h0?5A: begin // sts FPUL, Rn - implemented as add FPUL, zero -> Rn
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
                 src1_reg <= REG_FPUL;
-                src2_reg <= REG_ZERO;
+                src2_reg <= REG_CONST_0;
                 dest_reg <= RN;
                 op <= ADD;
             end
@@ -109,19 +112,20 @@ always @(posedge clk) begin
             16'h4?10: begin // dt Rn
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
                 src1_reg <= RN;
+                src2_reg <= REG_CONST_1;
                 dest_reg <= RN;
                 op <= SUBTRACT;
             end
             16'h4?5A: begin // lds Rn, FPUL - implemented as add FPUL, zero -> Rn
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
                 src1_reg <= REG_FPUL;
-                src2_reg <= REG_ZERO;
+                src2_reg <= REG_CONST_0;
                 dest_reg <= RN;
                 op <= ADD;
             end
             16'h6??B: begin // neg Rm, Rn - implemented as sub zero, Rm -> Rn
                 {insn_valid, src1_valid, src2_valid, dest_valid} <= 4'b1111;
-                src1_reg <= REG_ZERO;
+                src1_reg <= REG_CONST_0;
                 src2_reg <= RM;
                 dest_reg <= RN;
                 op <= SUBTRACT;
