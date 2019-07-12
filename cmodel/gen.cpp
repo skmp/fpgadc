@@ -11,6 +11,8 @@
 
 static dreamcast_t dc_state;
 
+#include "decoder.inl"
+
 //// mem fns
 
 template<typename T>
@@ -98,7 +100,14 @@ void generate_instruction(const sh4_opcodelistentry& insn)
 
     printf("\n//%s\n", file.c_str());
 
-    printf("ASSERT_MISSING(\"%s\")\n", insn.diss);
+    if (insn.dec_op == 0)
+    {
+        printf("ASSERT_MISSING(\"%s\")\n", insn.diss);
+    }
+    else
+    {
+        printf("DECODE_OP(\"%016X\")\n", insn.dec_op);
+    }
 }
 
 void generate_instructions()

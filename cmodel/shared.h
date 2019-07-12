@@ -29,6 +29,7 @@ struct sh4_opcodelistentry {
     uint16_t mask;
     uint16_t key;
     const char* diss;
+    u64 dec_op;
 };
 
 struct dreamcast_t {
@@ -859,6 +860,152 @@ sh4op(i1111_nn01_1111_1101);
 //FSRRA
 sh4op(i1111_nnnn_0111_1101);
 
+enum DecParam
+{
+	// Constants
+	PRM_PC_D8_x2,
+	PRM_PC_D8_x4,
+	PRM_ZERO,
+	PRM_ONE,
+	PRM_TWO,
+	PRM_TWO_INV,
+	PRM_ONE_F32,
+	
+	// imms
+	PRM_SIMM8,
+	PRM_UIMM8,
+
+	// Direct registers
+	PRM_R0,
+	PRM_RN,
+	PRM_RM,
+	PRM_FRN,
+	PRM_FRN_SZ, //single/double, selected bank
+	PRM_FRM,
+	PRM_FRM_SZ,
+	PRM_FPN,    //float pair, 3 bits
+	PRM_FVN,    //float quad, 2 bits
+	PRM_FVM,    //float quad, 2 bits
+	PRM_XMTRX,  //float matrix, 0 bits
+	PRM_FRM_FR0,
+	PRM_FPUL,
+	PRM_SR_T,
+	PRM_SR_STATUS,
+
+	PRM_SREG,   //FPUL/FPSCR/MACH/MACL/PR/DBR/SGR
+	PRM_CREG,   //SR/GBR/VBR/SSR/SPC/<RM_BANK>
+	
+	//reg/imm reg/reg
+	PRM_RN_D4_x1,
+	PRM_RN_D4_x2,
+	PRM_RN_D4_x4,
+	PRM_RN_R0,
+
+	PRM_RM_R0,
+	PRM_RM_D4_x1,
+	PRM_RM_D4_x2,
+	PRM_RM_D4_x4,
+
+	PRM_GBR_D8_x1,
+	PRM_GBR_D8_x2,
+	PRM_GBR_D8_x4,
+};
+
+enum DecMode
+{
+	DM_ReadSRF,
+	DM_BinaryOp,    //d=d op s
+	DM_UnaryOp,     //d= op s
+	DM_ReadM,       //d=readm(s);s+=e
+	DM_WriteM,      //s-=e;writem(s,d);
+	DM_fiprOp,
+	DM_WriteTOp,    //T=d op s
+	DM_DT,          //special case for dt
+	DM_Shift,
+	DM_Rot,
+	DM_EXTOP,
+	DM_MUL,
+	DM_DIV0,
+	DM_ADC,
+};
+
+#include "shil.h"
+
+//,DEC_D_RN|DEC_S_RM|DEC_OP(shop_and)
+u64 dec_Fill(DecMode mode,DecParam d,DecParam s,shilop op,u32 extra=0)
+{
+	return (((u64)extra)<<32)|(mode<<24)|(d<<16)|(s<<8)|op;
+}
+u64 dec_Un_rNrN(shilop op)
+{
+	return dec_Fill(DM_UnaryOp,PRM_RN,PRM_RN,op);
+}
+u64 dec_Un_rNrM(shilop op)
+{
+	return dec_Fill(DM_UnaryOp,PRM_RN,PRM_RM,op);
+}
+u64 dec_Un_frNfrN(shilop op)
+{
+	return dec_Fill(DM_UnaryOp,PRM_FRN,PRM_FRN,op);
+}
+u64 dec_Un_frNfrM(shilop op)
+{
+	return dec_Fill(DM_UnaryOp,PRM_FRN,PRM_FRM,op);
+}
+u64 dec_Bin_frNfrM(shilop op, u32 haswrite=1)
+{
+	return dec_Fill(DM_BinaryOp,PRM_FRN,PRM_FRM,op,haswrite);
+}
+u64 dec_Bin_rNrM(shilop op, u32 haswrite=1)
+{
+	return dec_Fill(DM_BinaryOp,PRM_RN,PRM_RM,op,haswrite);
+}
+u64 dec_mul(u32 type)
+{
+	//return 0;
+	return dec_Fill(DM_MUL,PRM_RN,PRM_RM,shop_mul_s16,type);
+}
+u64 dec_Bin_S8R(shilop op, u32 haswrite=1)
+{
+	return dec_Fill(DM_BinaryOp,PRM_RN,PRM_SIMM8,op,haswrite);
+}
+u64 dec_Bin_r0u8(shilop op, u32 haswrite=1)
+{
+	return dec_Fill(DM_BinaryOp,PRM_R0,PRM_UIMM8,op,haswrite);
+}
+u64 dec_shft(s32 offs,bool arithm)
+{
+	if (offs>0)
+	{
+		//left shift
+		return dec_Fill(DM_Shift,PRM_RN,PRM_RN,shop_shl,offs);
+	}
+	else
+	{
+		return dec_Fill(DM_Shift,PRM_RN,PRM_RN,arithm?shop_sar:shop_shr,-offs);
+	}
+
+}
+
+u64 dec_cmp(shilop op, DecParam s1,DecParam s2)
+{
+	return dec_Fill(DM_WriteTOp,s1,s2,op);
+}
+
+u64 dec_LD(DecParam d)  { return dec_Fill(DM_UnaryOp,d,PRM_RN,shop_mov32); }
+u64 dec_LDM(DecParam d) { return dec_Fill(DM_ReadM,d,PRM_RN,shop_readm,-4); }
+u64 dec_ST(DecParam d)  { return dec_Fill(DM_UnaryOp,PRM_RN,d,shop_mov32); }
+u64 dec_STSRF(DecParam d)   { return dec_Fill(DM_ReadSRF,PRM_RN,d,shop_mov32); }
+u64 dec_STM(DecParam d) { return dec_Fill(DM_WriteM,PRM_RN,d,shop_writem,-4); }
+
+//d=reg to read into
+u64 dec_MRd(DecParam d,DecParam s,u32 sz) { return dec_Fill(DM_ReadM,d,s,shop_readm,sz); }
+//d= reg to read from
+u64 dec_MWt(DecParam d,DecParam s,u32 sz) { return dec_Fill(DM_WriteM,d,s,shop_writem,sz); }
+
+//use this to disable opcodes
+u64 dec_rz(...) { return 0; }
+
 sh4_opcodelistentry missing_opcode = {iNotImplemented, 0, 0, "missing"};
 
 sh4_opcodelistentry opcodes[] =
@@ -866,11 +1013,11 @@ sh4_opcodelistentry opcodes[] =
     //CPU
     {i0000_nnnn_0010_0011   ,Mask_n         ,0x0023 ,"braf <REG_N>"},  //braf <REG_N>
     {i0000_nnnn_0000_0011   ,Mask_n         ,0x0003 ,"bsrf <REG_N>"},  //bsrf <REG_N>
-    {i0000_nnnn_1100_0011   ,Mask_n         ,0x00C3 ,"movca.l R0, @<REG_N>"}, //movca.l R0, @<REG_N>
+    {i0000_nnnn_1100_0011   ,Mask_n         ,0x00C3 ,"movca.l R0, @<REG_N>"    ,dec_MWt(PRM_RN,PRM_R0,4)}, //movca.l R0, @<REG_N>
     {i0000_nnnn_1001_0011   ,Mask_n         ,0x0093 ,"ocbi @<REG_N>"},  //ocbi @<REG_N>
     {i0000_nnnn_1010_0011   ,Mask_n         ,0x00A3 ,"ocbp @<REG_N>"},  //ocbp @<REG_N>
     {i0000_nnnn_1011_0011   ,Mask_n         ,0x00B3 ,"ocbwb @<REG_N>"},  //ocbwb @<REG_N>
-    {i0000_nnnn_1000_0011   ,Mask_n         ,0x0083 ,"pref @<REG_N>"},  //pref @<REG_N>
+    {i0000_nnnn_1000_0011   ,Mask_n         ,0x0083 ,"pref @<REG_N>",dec_Fill(DM_UnaryOp,PRM_RN,PRM_ONE,shop_pref,1)},  //pref @<REG_N>
     {i0000_nnnn_mmmm_0111   ,Mask_n_m       ,0x0007 ,"mul.l <REG_M>,<REG_N>"}, //mul.l <REG_M>,<REG_N>
     {i0000_0000_0010_1000   ,Mask_none      ,0x0028 ,"clrmac"},  //clrmac
     {i0000_0000_0100_1000   ,Mask_none      ,0x0048 ,"clrs"}, //clrs
